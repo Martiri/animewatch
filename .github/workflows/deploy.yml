@@ -1,0 +1,46 @@
+name: Deploy Static PWA to GitHub Pages (gh-pages branch)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "gh-pages-deploy"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Security Check (Ensure no secrets or innerHTML in source)
+        run: |
+          if grep -rn "innerHTML\s*=" index.html app.js config.js sw.js; then
+            echo "Errore sicurezza: rilevato innerHTML non consentito!"
+            exit 1
+          fi
+          echo "Security check superato."
+
+      - name: Prepare static dist folder
+        run: |
+          mkdir -p _dist/icons
+          cp index.html style.css config.js app.js sw.js manifest.json _dist/
+          cp -r icons/* _dist/icons/
+          touch _dist/.nojekyll
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_dist
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "chore(deploy): publish static PWA to gh-pages"
