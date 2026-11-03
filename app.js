@@ -2545,16 +2545,64 @@
       e.preventDefault();
       window.deferredInstallPrompt = e;
       showPwaInstallBanner();
+      updatePwaInstallUi();
     });
 
     window.addEventListener('appinstalled', () => {
       window.deferredInstallPrompt = null;
       hidePwaInstallBanner();
+      updatePwaInstallUi();
       showToast('AnimeWatch installata con successo come app!');
     });
+
+    const triggerBtn = document.getElementById('btn-trigger-pwa-install');
+    if (triggerBtn) {
+      triggerBtn.addEventListener('click', async () => {
+        if (window.deferredInstallPrompt) {
+          window.deferredInstallPrompt.prompt();
+          const choice = await window.deferredInstallPrompt.userChoice;
+          if (choice.outcome === 'accepted') {
+            showToast('Installazione avviata sul tuo telefono!');
+          }
+          window.deferredInstallPrompt = null;
+          hidePwaInstallBanner();
+          updatePwaInstallUi();
+        } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+          showToast('AnimeWatch è già installata e aperta come app!');
+        } else {
+          showToast('Tocca i 3 puntini in alto a destra in Chrome ➔ "Installa applicazione"');
+        }
+      });
+    }
+
+    updatePwaInstallUi();
+  }
+
+  function updatePwaInstallUi() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const badge = document.getElementById('pwa-install-status-badge');
+    const triggerBtn = document.getElementById('btn-trigger-pwa-install');
+    if (badge) {
+      if (isStandalone) {
+        badge.textContent = '✅ Installata';
+        badge.className = 'meta-badge badge-active';
+      } else if (window.deferredInstallPrompt) {
+        badge.textContent = '⚡ Pronta per l\'installazione';
+        badge.className = 'meta-badge badge-ready';
+      } else {
+        badge.textContent = 'WebAPK';
+      }
+    }
+    if (triggerBtn && isStandalone) {
+      triggerBtn.textContent = '✅ Applicazione già installata';
+      triggerBtn.disabled = true;
+      triggerBtn.classList.add('btn-disabled');
+    }
   }
 
   function showPwaInstallBanner() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) return;
     const existing = document.getElementById('pwa-install-banner');
     if (existing) return;
     const container = document.getElementById('global-alert-container');
@@ -2575,6 +2623,7 @@
             }
             window.deferredInstallPrompt = null;
             hidePwaInstallBanner();
+            updatePwaInstallUi();
           }
         }
       })
