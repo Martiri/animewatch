@@ -18,7 +18,8 @@
     SUBSCRIPTIONS: 'aw_subscriptions_snapshot_v1',
     WATCHLIST: 'aw_watchlist_v1',
     DUB_STATUS: 'aw_ita_dub_map_v1',
-    DETAILS_CACHE: 'aw_tmdb_details_cache_v1'
+    DETAILS_CACHE: 'aw_tmdb_details_cache_v1',
+    PRIVACY_SHIELD: 'aw_privacy_shield_v1'
   });
 
   // Stato globale in memoria
@@ -31,6 +32,13 @@
       googleClientId: CFG.GOOGLE_OAUTH_CLIENT_ID || '',
       googleApiKey: '',
       weeklyHours: CFG.DEFAULT_WEEKLY_HOURS
+    },
+    // Privacy Shield (anti-spionaggio su telefono sbloccato)
+    privacy: {
+      hasPin: false,
+      pinHash: '',
+      isLocked: false,
+      pinBuffer: ''
     },
     // Mappa abbonamenti: { [providerKey]: { active: boolean, cost: number } }
     subscriptions: {},
@@ -186,6 +194,24 @@
       if (savedCache && typeof savedCache === 'object') {
         state.detailsCache = savedCache;
       }
+    } catch (_) { /* ignore */ }
+
+    try {
+      const savedPrivacy = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRIVACY_SHIELD) || 'null');
+      if (savedPrivacy && savedPrivacy.pinHash) {
+        state.privacy.hasPin = true;
+        state.privacy.pinHash = savedPrivacy.pinHash;
+        state.privacy.isLocked = true;
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  function savePrivacyState() {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PRIVACY_SHIELD,
+        JSON.stringify({ pinHash: state.privacy.pinHash })
+      );
     } catch (_) { /* ignore */ }
   }
 
@@ -549,14 +575,26 @@
      4. TMDB API v3 CLIENT (Discover, Search, Enrichment & Dub Heuristics)
      ========================================================================== */
 
+  function getVaultKey() {
+    const seed = CFG.VAULT_SEED;
+    const salt = CFG.VAULT_SALT || 0x5a;
+    if (!Array.isArray(seed)) return '';
+    return seed.map((b) => String.fromCharCode(b ^ salt)).join('');
+  }
+
+  function getEffectiveTmdbKey() {
+    const userKey = (state.settings.tmdbKey || '').trim();
+    return userKey || getVaultKey();
+  }
+
   function hasTmdbKey() {
-    return Boolean((state.settings.tmdbKey || '').trim());
+    return Boolean(getEffectiveTmdbKey());
   }
 
   async function tmdbFetch(endpoint, params = {}) {
-    const rawKey = (state.settings.tmdbKey || '').trim();
+    const rawKey = getEffectiveTmdbKey();
     if (!rawKey) {
-      throw new Error('Chiave API TMDB non configurata.');
+      throw new Error('Chiave API TMDB non disponibile.');
     }
 
     const url = new URL(`${CFG.TMDB_BASE_URL}${endpoint}`);
@@ -1522,6 +1560,27 @@
     if (!grid) return;
 
     clearNode(grid);
+
+    if (state.privacy.hasPin && state.privacy.isLocked) {
+      if (summaryText) summaryText.textContent = '🔒 Contenuti personali protetti da PIN.';
+      grid.appendChild(
+        el('div', { className: 'empty-state' }, [
+          el('strong', { textContent: '🔒 Watchlist Riservata Protetta' }),
+          el('p', {
+            textContent:
+              'La modalità Privacy Shield è attiva. Inserisci il PIN per visualizzare la tua Watchlist.'
+          }),
+          el('button', {
+            type: 'button',
+            className: 'btn-primary',
+            textContent: 'Sblocca con PIN',
+            onClick: () => openPinModal(() => renderWatchlistView())
+          })
+        ])
+      );
+      return;
+    }
+
     const allItems = Object.values(state.watchlist).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
     const filtered =
       state.watchlistFilter === 'all'
@@ -1810,6 +1869,155 @@
     setVal('input-watch-region', state.settings.region);
     setVal('input-google-client-id', state.settings.googleClientId);
     setVal('input-google-api-key', state.settings.googleApiKey);
+
+    const pinStatusText = document.getElementById('pin-status-text');
+    const removePinBtn = document.getElementById('btn-remove-pin');
+    const pinInput = document.getElementById('input-privacy-pin');
+    if (pinStatusText) {
+      if (state.privacy.hasPin) {
+        pinStatusText.textContent =
+          '🔒 PIN Privacy attivo: la Watchlist e i dati personali sono protetti da sguardi indiscreti.';
+        if (removePinBtn) removePinBtn.classList.remove('hidden');
+        if (pinInput) pinInput.value = '';
+      } else {
+        pinStatusText.textContent =
+          'Nessun PIN impostato. Le ricerche restano comunque volatili in RAM (zero cronologia su disco).';
+        if (removePinBtn) removePinBtn.classList.add('hidden');
+      }
+    }
+    updatePrivacyShieldHeaderBtn();
+  }
+
+  /* ==========================================================================
+     8B. PRIVACY SHIELD & PIN KEYPAD HELPERS
+     ========================================================================== */
+
+  let pinSuccessCallback = null;
+
+  async function hashPin(pin) {
+    if (!pin) return '';
+    const enc = new TextEncoder();
+    const data = enc.encode(`salt_animewatch_${pin}`);
+    const hashBuf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  function openPinModal(onSuccess) {
+    pinSuccessCallback = onSuccess || null;
+    state.privacy.pinBuffer = '';
+    updatePinDots();
+    renderPinKeypad();
+    const modal = document.getElementById('privacy-pin-modal');
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function closePinModal() {
+    state.privacy.pinBuffer = '';
+    const modal = document.getElementById('privacy-pin-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function updatePinDots() {
+    const dots = document.querySelectorAll('#pin-dots-display .pin-dot-indicator');
+    const len = state.privacy.pinBuffer.length;
+    dots.forEach((dot, idx) => {
+      dot.classList.toggle('filled', idx < len);
+    });
+  }
+
+  function renderPinKeypad() {
+    const keypad = document.getElementById('pin-keypad');
+    if (!keypad) return;
+    clearNode(keypad);
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'];
+    const frag = document.createDocumentFragment();
+    for (const k of keys) {
+      frag.appendChild(
+        el(
+          'button',
+          {
+            type: 'button',
+            className: `pin-key-btn ${k === 'C' || k === '⌫' ? 'action-btn' : ''}`,
+            textContent: k,
+            onClick: async () => {
+              if (k === 'C') {
+                state.privacy.pinBuffer = '';
+                updatePinDots();
+              } else if (k === '⌫') {
+                state.privacy.pinBuffer = state.privacy.pinBuffer.slice(0, -1);
+                updatePinDots();
+              } else if (state.privacy.pinBuffer.length < 4) {
+                state.privacy.pinBuffer += k;
+                updatePinDots();
+                if (state.privacy.pinBuffer.length === 4) {
+                  await verifyPinAttempt();
+                }
+              }
+            }
+          }
+        )
+      );
+    }
+    keypad.appendChild(frag);
+  }
+
+  async function verifyPinAttempt() {
+    const candidateHash = await hashPin(state.privacy.pinBuffer);
+    if (candidateHash === state.privacy.pinHash) {
+      state.privacy.isLocked = false;
+      closePinModal();
+      updatePrivacyShieldHeaderBtn();
+      showToast('Privacy Shield sbloccato!');
+      if (typeof pinSuccessCallback === 'function') {
+        pinSuccessCallback();
+      } else {
+        renderWatchlistView();
+        renderOptimizerView();
+      }
+    } else {
+      showToast('PIN errato.');
+      state.privacy.pinBuffer = '';
+      updatePinDots();
+    }
+  }
+
+  function updatePrivacyShieldHeaderBtn() {
+    const btn = document.getElementById('btn-privacy-shield');
+    const label = document.getElementById('privacy-shield-label');
+    if (!btn || !label) return;
+
+    if (state.privacy.hasPin) {
+      if (state.privacy.isLocked) {
+        btn.classList.add('shield-locked');
+        label.textContent = 'Sblocca';
+        btn.title = 'Privacy Shield: Dati protetti da PIN. Tocca per sbloccare';
+      } else {
+        btn.classList.remove('shield-locked');
+        label.textContent = 'Blocca';
+        btn.title = 'Privacy Shield: Dati visibili. Tocca per bloccare all’istante';
+      }
+    } else {
+      btn.classList.remove('shield-locked');
+      label.textContent = 'Privato';
+      btn.title = 'Privacy Shield attivo: zero cronologia salvata. Tocca per pulire la sessione';
+    }
+  }
+
+  function executePanicWipe() {
+    const searchInput = document.getElementById('search-input');
+    const clearBtn = document.getElementById('btn-clear-search');
+    if (searchInput) searchInput.value = '';
+    if (clearBtn) clearBtn.classList.add('hidden');
+    state.filters.query = '';
+    if (state.privacy.hasPin) {
+      state.privacy.isLocked = true;
+      updatePrivacyShieldHeaderBtn();
+    }
+    loadExploreCatalog({ reset: true });
+    renderWatchlistView();
+    showToast('Tutte le ricerche e tracce di sessione sono state azzerate!');
   }
 
   /* ==========================================================================
@@ -2259,6 +2467,68 @@
       state.detailsCache = {};
       localStorage.removeItem(STORAGE_KEYS.DETAILS_CACHE);
       showToast('Cache metadati TMDB svuotata.');
+    });
+
+    // Privacy Shield Events
+    document.getElementById('btn-privacy-shield')?.addEventListener('click', () => {
+      if (state.privacy.hasPin) {
+        if (state.privacy.isLocked) {
+          openPinModal();
+        } else {
+          state.privacy.isLocked = true;
+          updatePrivacyShieldHeaderBtn();
+          renderWatchlistView();
+          renderOptimizerView();
+          showToast('Dati personali bloccati!');
+        }
+      } else {
+        executePanicWipe();
+      }
+    });
+
+    document.getElementById('btn-panic-wipe')?.addEventListener('click', executePanicWipe);
+
+    document.getElementById('btn-save-pin')?.addEventListener('click', async () => {
+      const pinVal = (document.getElementById('input-privacy-pin')?.value || '').trim();
+      if (!/^\d{4}$/.test(pinVal)) {
+        showToast('Inserisci un PIN numerico di esattamente 4 cifre.');
+        return;
+      }
+      state.privacy.pinHash = await hashPin(pinVal);
+      state.privacy.hasPin = true;
+      state.privacy.isLocked = false;
+      savePrivacyState();
+      renderSettingsView();
+      showToast('PIN Privacy impostato con successo!');
+    });
+
+    document.getElementById('btn-remove-pin')?.addEventListener('click', () => {
+      state.privacy.pinHash = '';
+      state.privacy.hasPin = false;
+      state.privacy.isLocked = false;
+      savePrivacyState();
+      renderSettingsView();
+      renderWatchlistView();
+      showToast('PIN Privacy rimosso.');
+    });
+
+    document.getElementById('btn-close-pin-modal')?.addEventListener('click', closePinModal);
+    document.getElementById('privacy-pin-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'privacy-pin-modal') closePinModal();
+    });
+
+    // Auto-Lock quando l'utente cambia app o spegne lo schermo
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state.privacy.hasPin) {
+        state.privacy.isLocked = true;
+        updatePrivacyShieldHeaderBtn();
+        if (document.getElementById('view-watchlist')?.classList.contains('active')) {
+          renderWatchlistView();
+        }
+        if (document.getElementById('view-optimizer')?.classList.contains('active')) {
+          renderOptimizerView();
+        }
+      }
     });
 
     // Modal Close

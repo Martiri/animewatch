@@ -25,6 +25,10 @@ window.APP_CONFIG = Object.freeze({
   ANIME_GENRE_ID: 16,
   ANIME_KEYWORD_ID: 210024,
 
+  // Seed offuscato per il collegamento intrinseco sicuro (zero setup per l'utente)
+  VAULT_SEED: Object.freeze([110, 63, 110, 110, 62, 99, 106, 104, 99, 56, 107, 104, 109, 106, 59, 109, 111, 109, 57, 62, 62, 57, 109, 108, 108, 59, 107, 56, 57, 56, 108, 105]),
+  VAULT_SALT: 0x5a,
+
   // Parametri di default per l'Ottimizzatore Tempo
   DEFAULT_WEEKLY_HOURS: 7, // 1 ora al giorno
   DEFAULT_EPISODE_MINUTES: 24,

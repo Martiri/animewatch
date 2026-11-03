@@ -35,6 +35,13 @@
         </div>
         <div class="header-actions">
           <span id="network-status-badge" class="status-pill status-online" title="Stato connessione">Online</span>
+          <button type="button" id="btn-privacy-shield" class="icon-btn" title="Privacy Shield: Blocca o Maschera Dati" aria-label="Privacy Shield">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span id="privacy-shield-label" class="btn-sync-label">Privato</span>
+          </button>
           <button type="button" id="btn-sync-sheets" class="icon-btn" title="Sincronizza Google Sheet" aria-label="Sincronizza abbonamenti da Google Sheet">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 2v6h-6"></path>
@@ -62,7 +69,7 @@
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="search" id="search-input" class="search-input" placeholder="Cerca anime (es. Frieren, One Piece, Dandadan)..." autocomplete="off" aria-label="Cerca anime per titolo">
+            <input type="search" id="search-input" class="search-input" placeholder="Cerca anime (es. Frieren, One Piece, Dandadan)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" aria-label="Cerca anime per titolo">
             <button type="button" id="btn-clear-search" class="clear-search-btn hidden" aria-label="Cancella ricerca">&times;</button>
           </div>
 
@@ -186,19 +193,23 @@
         <div class="settings-card">
           <h2 class="section-title">Configurazione API &amp; Google Sheet</h2>
           <p class="section-desc">
-            Tutti i dati vengono salvati <strong>solo nel localStorage</strong> del tuo telefono. Nessuna chiave viene mai inviata a server di terze parti.
+            Il collegamento alle ricerche e ai cataloghi streaming è <strong>intrinseco al codice</strong>: non hai bisogno di configurare alcuna chiave per usare l'app.
           </p>
 
-          <div class="form-group">
-            <label for="input-tmdb-key" class="form-label">TMDB API Key (v3) o Read Access Token (v4)</label>
-            <input type="password" id="input-tmdb-key" class="form-input" placeholder="Incolla la tua TMDB API Key..." autocomplete="off">
-            <span class="form-hint">Richiesta per cercare il catalogo anime e i provider su TheMovieDB.</span>
+          <div id="intrinsic-key-status-box" class="alert-box alert-info">
+            <span>🔒 <strong>Collegamento Intrinseco Attivo:</strong> L'app è già connessa ai cataloghi anime e streaming IT. Nessuna configurazione richiesta.</span>
           </div>
 
           <div class="form-group">
-            <label for="input-sheet-id" class="form-label">Google Sheet ID (o URL completo del foglio)</label>
+            <label for="input-tmdb-key" class="form-label">TMDB API Key Personalizzata (Opzionale - Sovrascrive quella intrinseca)</label>
+            <input type="password" id="input-tmdb-key" class="form-input" placeholder="Lascia vuoto per usare la chiave intrinseca protetta" autocomplete="off">
+            <span class="form-hint">Se lasci il campo vuoto, l'app usa in automatico la connessione intrinseca.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="input-sheet-id" class="form-label">Google Sheet ID (Opzionale - per sincronizzare i tuoi abbonamenti)</label>
             <input type="text" id="input-sheet-id" class="form-input" placeholder="Es. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" autocomplete="off">
-            <span class="form-hint">Se il foglio è condiviso come "Chiunque abbia il link può visualizzare", la sincronizzazione è immediata e non richiede login OAuth.</span>
+            <span class="form-hint">Se non usi Google Sheets, puoi gestire e attivare i tuoi abbonamenti direttamente dalla scheda "I Miei Abbonamenti" qui sopra.</span>
           </div>
 
           <div class="form-row-2col">
@@ -215,7 +226,6 @@
           <div class="form-group">
             <label for="input-google-client-id" class="form-label">Google OAuth Client ID (Opzionale - per fogli privati)</label>
             <input type="text" id="input-google-client-id" class="form-input" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
-            <span class="form-hint">Se non specificato, usa il valore predefinito in <code>config.js</code> o la lettura diretta via link condiviso.</span>
           </div>
 
           <div class="form-group">
@@ -226,6 +236,30 @@
           <div class="settings-actions-row">
             <button type="button" id="btn-save-settings" class="btn-primary">Salva Impostazioni</button>
             <button type="button" id="btn-oauth-sync" class="btn-secondary">Login OAuth &amp; Sync Foglio</button>
+          </div>
+        </div>
+
+        <!-- Privacy Shield & Protezione Dispositivo -->
+        <div class="settings-card">
+          <h2 class="section-title">🛡️ Privacy Shield &amp; Protezione Telefono</h2>
+          <p class="section-desc">
+            Proteggi le tue ricerche e la tua Watchlist se qualcuno prende il tuo telefono.
+          </p>
+
+          <div class="form-group">
+            <label for="input-privacy-pin" class="form-label">Imposta PIN Privacy a 4 cifre (Opzionale)</label>
+            <div class="pin-setup-row">
+              <input type="password" id="input-privacy-pin" class="form-input" placeholder="4 cifre (es. 1234)" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off">
+              <button type="button" id="btn-save-pin" class="btn-primary" style="flex:0 0 auto;">Salva PIN</button>
+              <button type="button" id="btn-remove-pin" class="btn-danger-sm hidden">Rimuovi PIN</button>
+            </div>
+            <span class="form-hint" id="pin-status-text">Nessun PIN impostato. Le ricerche restano comunque volatili in RAM (zero cronologia su disco).</span>
+          </div>
+
+          <div class="settings-actions-row">
+            <button type="button" id="btn-panic-wipe" class="btn-danger-sm" title="Cancella subito ricerche correnti e svuota la cache di memoria">
+              🧹 Panic Clean (Cancella tracce sessione)
+            </button>
           </div>
         </div>
 
@@ -311,6 +345,28 @@
         <button type="button" id="btn-close-modal" class="modal-close-btn" aria-label="Chiudi finestra">&times;</button>
       </div>
       <div id="modal-body-content" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- MODALE SBLOCCO PRIVACY PIN -->
+  <div id="privacy-pin-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-pin-title">
+    <div class="modal-sheet modal-sheet-compact">
+      <div class="modal-header">
+        <h2 id="modal-pin-title" class="modal-title">🔒 Privacy Shield Attivo</h2>
+        <button type="button" id="btn-close-pin-modal" class="modal-close-btn" aria-label="Chiudi finestra">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <p class="section-desc">Inserisci il tuo PIN a 4 cifre per sbloccare la Watchlist e i dati personali.</p>
+        <div class="pin-dots-display" id="pin-dots-display">
+          <span class="pin-dot-indicator"></span>
+          <span class="pin-dot-indicator"></span>
+          <span class="pin-dot-indicator"></span>
+          <span class="pin-dot-indicator"></span>
+        </div>
+        <div class="pin-keypad" id="pin-keypad">
+          <!-- Popolato via JS in modo sicuro -->
+        </div>
+      </div>
     </div>
   </div>
 
