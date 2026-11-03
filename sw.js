@@ -1,18 +1,16 @@
 /**
  * AnimeWatch IT — Service Worker (PWA Offline-Ready & WebAPK Compliant)
- * Strategie:
- * 1) Cache-First per gli asset statici dell'App Shell
- * 2) Network-First con fallback su Cache per Google Sheets API e TMDB API
- * 3) Cache-First con aggiornamento per le locandine TMDB
+ * Version: v3 (POCO F7 / Xiaomi HyperOS & Chrome Android 14/15)
  */
 
 'use strict';
 
-const STATIC_CACHE = 'animewatch-static-v2';
-const API_CACHE = 'animewatch-api-v2';
-const IMG_CACHE = 'animewatch-img-v2';
+const STATIC_CACHE = 'animewatch-static-v4';
+const API_CACHE = 'animewatch-api-v4';
+const IMG_CACHE = 'animewatch-img-v4';
 
 const APP_SHELL_ASSETS = [
+  './',
   './index.html',
   './style.css',
   './config.js',
@@ -29,7 +27,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(STATIC_CACHE).then(async (cache) => {
-      // Pre-caching sicuro (se una singola risorsa fallisce, le altre vengono comunque salvate)
       await Promise.allSettled(
         APP_SHELL_ASSETS.map((asset) => cache.add(asset).catch(() => null))
       );
@@ -59,10 +56,6 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-/**
- * Rimuove token/api_key volatili dalla chiave di cache per Google Sheets in modo che
- * lo snapshot rimanga recuperabile anche quando il token OAuth cambia.
- */
 function buildCanonicalApiCacheRequest(request) {
   const url = new URL(request.url);
   if (url.hostname === 'sheets.googleapis.com' || url.hostname === 'docs.google.com') {
@@ -94,12 +87,21 @@ async function networkFirstWithCacheFallback(request) {
 async function cacheFirstStatic(request) {
   const cached = await caches.match(request);
   if (cached) return cached;
-  const response = await fetch(request);
-  if (response && response.ok) {
-    const cache = await caches.open(STATIC_CACHE);
-    cache.put(request, response.clone());
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (err) {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/') || url.pathname.endsWith('index.html')) {
+      const fallback = await caches.match('./index.html');
+      if (fallback) return fallback;
+    }
+    throw err;
   }
-  return response;
 }
 
 async function cacheFirstImage(request) {
@@ -121,9 +123,32 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
+  // 1) Requisito Tassativo Chrome PWA: Intercettazione Navigazione Offline (start_url 200 OK)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put('./index.html', clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cache = await caches.open(STATIC_CACHE);
+          return (
+            (await cache.match('./index.html')) ||
+            (await cache.match('./')) ||
+            (await cache.match('index.html'))
+          );
+        })
+    );
+    return;
+  }
+
   const url = new URL(request.url);
 
-  // 1) Network-First con fallback su Cache per Google Sheets e TMDB API
+  // 2) Google Sheets e TMDB API: Network-First con fallback su cache
   if (
     url.hostname === 'sheets.googleapis.com' ||
     url.hostname === 'docs.google.com' ||
@@ -134,13 +159,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2) Locandine TMDB: Cache-First con fallback
+  // 3) Locandine TMDB: Cache-First
   if (url.hostname === 'image.tmdb.org') {
     event.respondWith(cacheFirstImage(request));
     return;
   }
 
-  // 3) Asset statici dello stesso origin: Cache-First
+  // 4) Asset statici dell'App Shell: Cache-First
   if (url.origin === self.location.origin) {
     event.respondWith(cacheFirstStatic(request));
   }

@@ -5,12 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0b0f17">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="AnimeWatch">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="AnimeWatch">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="Scopri dove guardare gli anime in Italia sui tuoi abbonamenti streaming attivi e ottimizza budget e tempo.">
 
-  <!-- Content-Security-Policy ferrea (allineata in fase Grill Me) -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com https://www.googleapis.com https://docs.google.com https://*.googleusercontent.com https://api.themoviedb.org; img-src 'self' https://image.tmdb.org data:; font-src 'self'; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'self'; form-action 'none';">
+  <!-- Content-Security-Policy ferrea con worker-src abilitato per Service Worker PWA -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; worker-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com https://www.googleapis.com https://docs.google.com https://*.googleusercontent.com https://api.themoviedb.org; img-src 'self' https://image.tmdb.org data:; font-src 'self'; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'self'; form-action 'none';">
 
   <title>AnimeWatch IT — Stream &amp; Budget Optimizer</title>
   <link rel="manifest" href="./manifest.json">

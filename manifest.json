@@ -1,5 +1,5 @@
 {
-  "id": "animewatch-pwa-v1",
+  "id": "/animewatch/",
   "name": "AnimeWatch IT — Stream & Budget Optimizer",
   "short_name": "AnimeWatch",
   "description": "Scopri dove guardare gli anime in Italia sui tuoi abbonamenti streaming attivi e ottimizza budget e tempo.",
@@ -8,6 +8,7 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#0b0f17",
   "theme_color": "#0b0f17",
@@ -37,12 +38,15 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
+    }
+  ],
+  "shortcuts": [
     {
-      "src": "./icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "name": "Esplora Anime",
+      "short_name": "Esplora",
+      "description": "Esplora il catalogo anime sui tuoi abbonamenti",
+      "url": "./index.html",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
