@@ -2539,15 +2539,71 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeAnimeDetailModal();
     });
+
+    // Native PWA WebAPK install prompt handler
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredInstallPrompt = e;
+      showPwaInstallBanner();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      window.deferredInstallPrompt = null;
+      hidePwaInstallBanner();
+      showToast('AnimeWatch installata con successo come app!');
+    });
+  }
+
+  function showPwaInstallBanner() {
+    const existing = document.getElementById('pwa-install-banner');
+    if (existing) return;
+    const container = document.getElementById('global-alert-container');
+    if (!container) return;
+
+    const banner = el('div', { id: 'pwa-install-banner', className: 'alert-box alert-info' }, [
+      el('span', { textContent: '📱 Installa AnimeWatch come vera applicazione nativa sul tuo telefono.' }),
+      el('button', {
+        type: 'button',
+        className: 'alert-action-btn',
+        textContent: 'Installa Ora',
+        onClick: async () => {
+          if (window.deferredInstallPrompt) {
+            window.deferredInstallPrompt.prompt();
+            const choice = await window.deferredInstallPrompt.userChoice;
+            if (choice.outcome === 'accepted') {
+              showToast('Installazione avviata!');
+            }
+            window.deferredInstallPrompt = null;
+            hidePwaInstallBanner();
+          }
+        }
+      })
+    ]);
+    container.insertBefore(banner, container.firstChild);
+  }
+
+  function hidePwaInstallBanner() {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
   }
 
   function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {
-          /* silent fallback if running on file:// */
-        });
-      });
+      const doRegister = () => {
+        navigator.serviceWorker
+          .register('./sw.js', { scope: './' })
+          .then((reg) => {
+            // Forza l'aggiornamento immediato del service worker
+            if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          })
+          .catch(() => {});
+      };
+
+      if (document.readyState === 'complete') {
+        doRegister();
+      } else {
+        window.addEventListener('load', doRegister);
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 /**
- * AnimeWatch IT — Service Worker (PWA Offline-Ready)
+ * AnimeWatch IT — Service Worker (PWA Offline-Ready & WebAPK Compliant)
  * Strategie:
  * 1) Cache-First per gli asset statici dell'App Shell
  * 2) Network-First con fallback su Cache per Google Sheets API e TMDB API
@@ -8,12 +8,11 @@
 
 'use strict';
 
-const STATIC_CACHE = 'animewatch-static-v1';
-const API_CACHE = 'animewatch-api-v1';
-const IMG_CACHE = 'animewatch-img-v1';
+const STATIC_CACHE = 'animewatch-static-v2';
+const API_CACHE = 'animewatch-api-v2';
+const IMG_CACHE = 'animewatch-img-v2';
 
 const APP_SHELL_ASSETS = [
-  './',
   './index.html',
   './style.css',
   './config.js',
@@ -21,15 +20,23 @@ const APP_SHELL_ASSETS = [
   './manifest.json',
   './icons/icon.svg',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(APP_SHELL_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(STATIC_CACHE).then(async (cache) => {
+      // Pre-caching sicuro (se una singola risorsa fallisce, le altre vengono comunque salvate)
+      await Promise.allSettled(
+        APP_SHELL_ASSETS.map((asset) => cache.add(asset).catch(() => null))
+      );
+      try {
+        await cache.add('./');
+      } catch (_) {}
+    })
   );
 });
 

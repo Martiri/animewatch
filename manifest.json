@@ -1,7 +1,8 @@
 {
+  "id": "animewatch-pwa-v1",
   "name": "AnimeWatch IT — Stream & Budget Optimizer",
   "short_name": "AnimeWatch",
-  "description": "Scopri dove guardare gli anime in Italia sui tuoi abbonamenti attivi e ottimizza budget e tempo.",
+  "description": "Scopri dove guardare gli anime in Italia sui tuoi abbonamenti streaming attivi e ottimizza budget e tempo.",
   "lang": "it-IT",
   "dir": "ltr",
   "start_url": "./index.html",
@@ -10,25 +11,38 @@
   "orientation": "portrait-primary",
   "background_color": "#0b0f17",
   "theme_color": "#0b0f17",
+  "prefer_related_applications": false,
   "categories": ["entertainment", "utilities"],
   "icons": [
-    {
-      "src": "./icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
     {
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }
