@@ -1,4 +1,4 @@
-package it.martiri.animewatch
+package it.franco.animewatch
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -10,16 +10,15 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
 
@@ -48,19 +47,19 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (_: Exception) {}
 
-        // 3. Inizializzazione Safe Browsing se supportato dal dispositivo
+        // 3. Safe Browsing
         if (WebViewFeature.isFeatureSupported(WebViewFeature.START_SAFE_BROWSING)) {
             WebViewCompat.startSafeBrowsing(this) { _ -> }
         }
 
-        // 4. Inizializzazione WebView sicura (Zero accesso a file di sistema)
+        // 4. Inizializzazione WebView sicura
         webView = WebView(this).apply {
             id = View.generateViewId()
             setBackgroundColor(0xFF0B0F17.toInt()) // OLED Dark #0b0f17
         }
         setContentView(webView)
 
-        // 5. Configurazione WebViewAssetLoader (Sandboxed domain: https://appassets.androidplatform.net/)
+        // 5. Configurazione WebViewAssetLoader
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
@@ -78,7 +77,7 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = true
         }
 
-        // 6. WebViewClient con Intent Handling ultra-sicuro (Zero Intent.parseUri)
+        // 6. WebViewClient con Intent Handling ultra-sicuro
         webView.webViewClient = object : WebViewClientCompat() {
             override fun shouldInterceptRequest(
                 view: WebView,
@@ -94,12 +93,12 @@ class MainActivity : AppCompatActivity() {
                 val uri = request.url
                 val scheme = uri.scheme?.lowercase() ?: return true
 
-                // 1) Navigazione interna consentita solo nel dominio virtuale isolato
+                // Risorse interne dell'applicazione
                 if (scheme == "https" && uri.host == "appassets.androidplatform.net") {
                     return false
                 }
 
-                // 2) Apertura link esterni streaming / web solo tramite intent esplicito sicuro HTTP/S
+                // Apertura sicura di link esterni solo se HTTP o HTTPS
                 if (scheme == "https" || scheme == "http") {
                     try {
                         val browserIntent = Intent(Intent.ACTION_VIEW, uri).apply {
@@ -111,7 +110,6 @@ class MainActivity : AppCompatActivity() {
                     return true
                 }
 
-                // Blocca categoricamente qualsiasi altro schema arbitrario (intent://, file://, etc.)
                 return true
             }
         }

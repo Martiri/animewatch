@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permessi minimi assoluti (100% Google Play Protect Clean, zero REQUEST_INSTALL_PACKAGES) -->
+    <!-- Permessi minimi assoluti (100% Google Play Protect Clean, zero DUMP, zero REQUEST_INSTALL_PACKAGES) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -25,6 +26,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            tools:node="remove" />
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            tools:node="remove" />
     </application>
 
 </manifest>
