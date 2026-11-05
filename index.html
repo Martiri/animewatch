@@ -20,8 +20,16 @@
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <link rel="stylesheet" href="./style.css">
 
-  <!-- Google Identity Services (caricato in modo asincrono, non bloccante per l'offline) -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Google Identity Services (caricato dinamicamente solo nel browser web, evitando WebView per Play Protect) -->
+  <script>
+    if (window.location.hostname !== 'appassets.androidplatform.net') {
+      var gsi = document.createElement('script');
+      gsi.src = 'https://accounts.google.com/gsi/client';
+      gsi.async = true;
+      gsi.defer = true;
+      document.head.appendChild(gsi);
+    }
+  </script>
 </head>
 <body>
   <div class="app-shell">

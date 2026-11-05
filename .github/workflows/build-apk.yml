@@ -72,38 +72,38 @@ jobs:
       - name: Prepare APK Artifact
         run: |
           mkdir -p dist-apk
-          cp android/app/build/outputs/apk/release/app-release.apk dist-apk/AnimeWatch-v1.0.1.apk
+          cp android/app/build/outputs/apk/release/app-release.apk dist-apk/AnimeWatch-v1.0.2.apk
           ls -lh dist-apk/
 
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AnimeWatch-POCO-F7-v1.0.1
-          path: dist-apk/AnimeWatch-v1.0.1.apk
+          name: AnimeWatch-POCO-F7-v1.0.2
+          path: dist-apk/AnimeWatch-v1.0.2.apk
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="v1.0.1"
+          TAG_NAME="v1.0.2"
           cat << 'EOF' > release_notes.md
-          ### 📱 AnimeWatch v1.0.1 — APK Nativo per Xiaomi POCO F7
+          ### 📱 AnimeWatch v1.0.2 — 100% Play Protect Hardened Edition
           
-          - **Icone Adattive Native Corrette**: risolto il riferimento circolare delle Adaptive Icons per Xiaomi HyperOS / POCO F7, ora dotate di tutte le densità (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi).
-          - **Display 120Hz Lock**: rendering a 120 fps forzato sul display AMOLED di HyperOS 2.
-          - **Offline-First Bundled**: interfaccia web integrata via AndroidX WebViewAssetLoader (avvio istantaneo a 0ms).
-          - **100% Play Protect Clean**: zero permessi pericolosi (eliminato `REQUEST_INSTALL_PACKAGES`).
-          - **Firma Permanente RSA-2048**: aggiornamento in-place diretto senza disinstallare la versione precedente.
-          - **Intent Dispatcher**: apertura diretta delle app streaming (Crunchyroll, Netflix, Disney+, Prime Video, ecc.).
+          - **Play Protect Hardening**: eliminata qualsiasi chiamata a `Intent.parseUri` e sanificati tutti i redirect della WebView (zero Intent Redirection risk).
+          - **Safe Browsing & Sandboxing**: abilitato `WebViewCompat.startSafeBrowsing` con isolamento domini `appassets.androidplatform.net`.
+          - **V3 Signature Scheme**: abilitata la firma APK V1 + V2 + V3 per piena compatibilità con Android 15 / HyperOS 2.
+          - **Icone Adattive Native**: set completo multi-densità (`mipmap-mdpi` -> `xxxhdpi`) per Xiaomi POCO F7.
+          - **Display 120Hz Lock**: rendering a 120 fps forzato su display AMOLED.
+          - **Offline-First Bundled**: avvio istantaneo a 0ms senza dipendenza da rete.
           EOF
 
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             echo "Updating existing release $TAG_NAME with new APK..."
-            gh release upload "$TAG_NAME" dist-apk/AnimeWatch-v1.0.1.apk --clobber
+            gh release upload "$TAG_NAME" dist-apk/AnimeWatch-v1.0.2.apk --clobber
           else
             echo "Creating new release $TAG_NAME..."
-            gh release create "$TAG_NAME" dist-apk/AnimeWatch-v1.0.1.apk \
-              --title "AnimeWatch v1.0.1 (Icone Adaptive & 120Hz)" \
+            gh release create "$TAG_NAME" dist-apk/AnimeWatch-v1.0.2.apk \
+              --title "AnimeWatch v1.0.2 (Play Protect Clean & 120Hz)" \
               --notes-file release_notes.md
           fi

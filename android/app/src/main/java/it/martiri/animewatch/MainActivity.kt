@@ -13,19 +13,15 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlin.concurrent.thread
+import androidx.webkit.WebViewClientCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private val currentVersionName = "1.0.1"
-    private val repoReleasesApi = "https://api.github.com/repos/Martiri/animewatch/releases/latest"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,14 +48,19 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (_: Exception) {}
 
-        // 3. Inizializzazione WebView
+        // 3. Inizializzazione Safe Browsing se supportato dal dispositivo
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.START_SAFE_BROWSING)) {
+            WebViewCompat.startSafeBrowsing(this) { _ -> }
+        }
+
+        // 4. Inizializzazione WebView sicura (Zero accesso a file di sistema)
         webView = WebView(this).apply {
             id = View.generateViewId()
             setBackgroundColor(0xFF0B0F17.toInt()) // OLED Dark #0b0f17
         }
         setContentView(webView)
 
-        // 4. Configurazione WebViewAssetLoader (Servizio asset locali sicuri)
+        // 5. Configurazione WebViewAssetLoader (Sandboxed domain: https://appassets.androidplatform.net/)
         val assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
@@ -71,12 +72,14 @@ class MainActivity : AppCompatActivity() {
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
             allowContentAccess = false
+            setGeolocationEnabled(false)
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             useWideViewPort = true
             loadWithOverviewMode = true
         }
 
-        webView.webViewClient = object : WebViewClient() {
+        // 6. WebViewClient con Intent Handling ultra-sicuro (Zero Intent.parseUri)
+        webView.webViewClient = object : WebViewClientCompat() {
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -88,49 +91,34 @@ class MainActivity : AppCompatActivity() {
                 view: WebView,
                 request: WebResourceRequest
             ): Boolean {
-                val url = request.url.toString()
+                val uri = request.url
+                val scheme = uri.scheme?.lowercase() ?: return true
 
-                // Navigazione interna nell'app
-                if (url.startsWith("https://appassets.androidplatform.net/")) {
+                // 1) Navigazione interna consentita solo nel dominio virtuale isolato
+                if (scheme == "https" && uri.host == "appassets.androidplatform.net") {
                     return false
                 }
 
-                // Android Intent per app native (Crunchyroll, Netflix, Disney+, Prime Video, ecc.)
-                if (url.startsWith("intent://")) {
+                // 2) Apertura link esterni streaming / web solo tramite intent esplicito sicuro HTTP/S
+                if (scheme == "https" || scheme == "http") {
                     try {
-                        val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                        if (intent != null) {
-                            intent.addCategory(Intent.CATEGORY_BROWSABLE)
-                            intent.component = null
-                            intent.selector = null
-                            if (intent.resolveActivity(packageManager) != null) {
-                                startActivity(intent)
-                                return true
-                            }
-                            // Fallback se l'app non è installata
-                            val fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                            if (!fallbackUrl.isNullOrEmpty()) {
-                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
-                                return true
-                            }
+                        val browserIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                            addCategory(Intent.CATEGORY_BROWSABLE)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
                         }
+                        startActivity(browserIntent)
                     } catch (_: Exception) {}
                     return true
                 }
 
-                // Link esterni / Store / Streaming -> Apertura nel browser o app nativa
-                try {
-                    val externalIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                    startActivity(externalIntent)
-                } catch (_: Exception) {}
+                // Blocca categoricamente qualsiasi altro schema arbitrario (intent://, file://, etc.)
                 return true
             }
         }
 
-        // 5. Gestione Tasto Indietro / Gesture di navigazione
+        // 7. Gestione Tasto Indietro / Gesture di navigazione
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // Notifica l'app web per chiudere eventuali modali aperte prima di navigare
                 webView.evaluateJavascript(
                     """
                     (function() {
@@ -163,66 +151,8 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // 6. Carica l'applicazione dagli asset locali bundled
+        // 8. Carica l'applicazione dagli asset locali bundled
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
-
-        // 7. Controllo Aggiornamenti Discreto (Zero REQUEST_INSTALL_PACKAGES, 100% Play Protect Clean)
-        checkForAppUpdates()
-    }
-
-    private fun checkForAppUpdates() {
-        thread {
-            try {
-                val url = URL(repoReleasesApi)
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "GET"
-                conn.setRequestProperty("User-Agent", "AnimeWatch-App/$currentVersionName")
-                conn.connectTimeout = 4000
-                conn.readTimeout = 4000
-
-                if (conn.responseCode == 200) {
-                    val response = conn.inputStream.bufferedReader().use { it.readText() }
-                    val json = JSONObject(response)
-                    val latestTag = json.optString("tag_name", "").replace("v", "").trim()
-                    val htmlUrl = json.optString("html_url", "")
-
-                    if (isNewerVersion(currentVersionName, latestTag) && htmlUrl.isNotEmpty()) {
-                        runOnUiThread {
-                            showUpdateDialog(latestTag, htmlUrl)
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-    }
-
-    private fun isNewerVersion(current: String, latest: String): Boolean {
-        if (latest.isEmpty()) return false
-        val curParts = current.split(".").mapNotNull { it.toIntOrNull() }
-        val latParts = latest.split(".").mapNotNull { it.toIntOrNull() }
-        val maxLen = maxOf(curParts.size, latParts.size)
-        for (i in 0 until maxLen) {
-            val c = curParts.getOrElse(i) { 0 }
-            val l = latParts.getOrElse(i) { 0 }
-            if (l > c) return true
-            if (l < c) return false
-        }
-        return false
-    }
-
-    private fun showUpdateDialog(newVersion: String, downloadUrl: String) {
-        if (isFinishing || isDestroyed) return
-        AlertDialog.Builder(this)
-            .setTitle("Nuovo Aggiornamento Disponibile")
-            .setMessage("È disponibile la versione v$newVersion di AnimeWatch. Vuoi scaricare l'aggiornamento?")
-            .setPositiveButton("Scarica Aggiornamento") { _, _ ->
-                try {
-                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
-                    startActivity(browserIntent)
-                } catch (_: Exception) {}
-            }
-            .setNegativeButton("Più tardi", null)
-            .show()
     }
 
     override fun onResume() {
