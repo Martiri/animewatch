@@ -12,8 +12,6 @@ on:
       - "manifest.json"
       - "icons/**"
       - ".github/workflows/build-apk.yml"
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -33,9 +31,6 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Sync Web Assets to Android
         run: |
@@ -92,6 +87,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG_NAME="v1.0.0"
+          cat << 'EOF' > release_notes.md
+          ### 📱 AnimeWatch v1.0.0 — APK Nativo per Xiaomi POCO F7
+          
+          - **Display 120Hz Lock**: rendering a 120 fps forzato sul display AMOLED di HyperOS 2.
+          - **Offline-First Bundled**: interfaccia web integrata via AndroidX WebViewAssetLoader (avvio istantaneo a 0ms).
+          - **100% Play Protect Clean**: zero permessi pericolosi (eliminato `REQUEST_INSTALL_PACKAGES`).
+          - **Firma Permanente RSA-2048**: aggiornamenti in-place trasparenti garantiti nel tempo.
+          - **Intent Dispatcher**: apertura diretta delle app streaming (Crunchyroll, Netflix, Disney+, Prime Video, ecc.).
+          EOF
+
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             echo "Updating existing release $TAG_NAME with new APK..."
             gh release upload "$TAG_NAME" dist-apk/AnimeWatch-v1.0.0.apk --clobber
@@ -99,11 +104,5 @@ jobs:
             echo "Creating new release $TAG_NAME..."
             gh release create "$TAG_NAME" dist-apk/AnimeWatch-v1.0.0.apk \
               --title "AnimeWatch v1.0.0 (POCO F7 Edition)" \
-              --notes "### 📱 AnimeWatch v1.0.0 — APK Nativo per Xiaomi POCO F7
-              
-- **Display 120Hz Lock**: rendering a 120 fotogrammi al secondo forzato su display AMOLED.
-- **Offline-First Bundled**: interfaccia web integrata via AndroidX WebViewAssetLoader (avvio istantaneo a 0ms senza dipendenza da rete).
-- **100% Play Protect Clean**: zero permessi pericolosi (eliminato `REQUEST_INSTALL_PACKAGES`), canali certificati.
-- **Firma Permanente RSA-2048**: aggiornamenti in-place trasparenti garantiti nel tempo.
-- **Intent Dispatcher**: apertura istantanea delle app di streaming installate (Crunchyroll, Netflix, Disney+, Prime Video, ecc.)."
+              --notes-file release_notes.md
           fi
