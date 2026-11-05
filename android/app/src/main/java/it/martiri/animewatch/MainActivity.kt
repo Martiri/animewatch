@@ -24,7 +24,7 @@ import kotlin.concurrent.thread
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private val currentVersionName = "1.0.0"
+    private val currentVersionName = "1.0.1"
     private val repoReleasesApi = "https://api.github.com/repos/Martiri/animewatch/releases/latest"
 
     @SuppressLint("SetJavaScriptEnabled")
