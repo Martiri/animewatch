@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f17">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="AnimeWatch">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="AnimeWatch">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Scopri dove guardare gli anime in Italia sui tuoi abbonamenti streaming attivi e ottimizza budget e tempo.">
+
+  <!-- Content-Security-Policy ferrea con worker-src abilitato per Service Worker PWA -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://accounts.google.com/gsi/client; worker-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://accounts.google.com https://sheets.googleapis.com https://www.googleapis.com https://docs.google.com https://*.googleusercontent.com https://api.themoviedb.org; img-src 'self' https://image.tmdb.org data:; font-src 'self'; frame-src https://accounts.google.com; manifest-src 'self'; base-uri 'self'; form-action 'none';">
+
+  <title>AnimeWatch IT — Stream &amp; Budget Optimizer</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+
+  <!-- Google Identity Services (caricato in modo asincrono, non bloccante per l'offline) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header -->
+    <header class="app-header" role="banner">
+      <div class="brand-row">
+        <div class="brand-title-group">
+          <img src="./icons/icon.svg" alt="" class="brand-logo" width="32" height="32">
+          <div>
+            <h1 class="app-title">AnimeWatch <span class="badge-region" id="header-region-badge">IT</span></h1>
+            <p class="app-subtitle" id="header-subs-summary">Caricamento abbonamenti...</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span id="network-status-badge" class="status-pill status-online" title="Stato connessione">Online</span>
+          <button type="button" id="btn-privacy-shield" class="icon-btn" title="Privacy Shield: Blocca o Maschera Dati" aria-label="Privacy Shield">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span id="privacy-shield-label" class="btn-sync-label">Privato</span>
+          </button>
+          <button type="button" id="btn-sync-sheets" class="icon-btn" title="Sincronizza Google Sheet" aria-label="Sincronizza abbonamenti da Google Sheet">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 2v6h-6"></path>
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+              <path d="M3 22v-6h6"></path>
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+            </svg>
+            <span class="btn-sync-label">Sync</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Global Alert Banner (Errori, Offline, Chiavi mancanti, Provider sconosciuti) -->
+      <div id="global-alert-container" class="alert-stack" role="region" aria-live="polite"></div>
+    </header>
+
+    <!-- Main Content Views -->
+    <main class="app-main" id="app-main" role="main">
+
+      <!-- VISTA 1: ESPLORA & CERCA -->
+      <section id="view-explore" class="app-view active" aria-labelledby="tab-btn-explore">
+        <div class="search-panel">
+          <div class="search-input-wrap">
+            <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="search-input" class="search-input" placeholder="Cerca anime (es. Frieren, One Piece, Dandadan)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" aria-label="Cerca anime per titolo">
+            <button type="button" id="btn-clear-search" class="clear-search-btn hidden" aria-label="Cancella ricerca">&times;</button>
+          </div>
+
+          <!-- Quick Toggle Chips -->
+          <div class="filter-chips-row" role="group" aria-label="Filtri rapidi">
+            <button type="button" id="toggle-my-subs" class="chip-toggle active" aria-pressed="true">
+              <span class="chip-dot"></span>
+              <span>Miei Abbonamenti</span>
+            </button>
+            <button type="button" id="toggle-ita-dub" class="chip-toggle" aria-pressed="false">
+              <span>🎙️ Solo Doppiati ITA</span>
+            </button>
+            <button type="button" id="toggle-asian-anim" class="chip-toggle" aria-pressed="false" title="Includi anche Donghua (Cina) e Aeni (Corea)">
+              <span>🌏 +Donghua CN/KR</span>
+            </button>
+          </div>
+
+          <!-- Secondary Selectors (Tipo, Genere, Ordinamento) -->
+          <div class="filter-selects-row">
+            <select id="select-media-type" class="filter-select" aria-label="Tipo di contenuto">
+              <option value="all">Serie + Film</option>
+              <option value="tv">Solo Serie TV</option>
+              <option value="movie">Solo Film</option>
+            </select>
+            <select id="select-subgenre" class="filter-select" aria-label="Genere anime">
+              <option value="">Tutti i generi</option>
+            </select>
+            <select id="select-sort" class="filter-select" aria-label="Ordina per">
+              <option value="popularity.desc">Più popolari</option>
+              <option value="vote_average.desc">Più votati</option>
+              <option value="first_air_date.desc">Più recenti</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Active Subscriptions Strip -->
+        <div id="active-providers-bar" class="active-providers-strip" aria-label="Abbonamenti attivi utilizzati nel filtro"></div>
+
+        <!-- Results Grid -->
+        <div id="explore-results-meta" class="results-meta"></div>
+        <div id="explore-grid" class="anime-grid" aria-live="polite"></div>
+
+        <div class="pagination-row">
+          <button type="button" id="btn-load-more" class="btn-secondary hidden">Carica altri anime</button>
+        </div>
+      </section>
+
+      <!-- VISTA 2: WATCHLIST LOCALE -->
+      <section id="view-watchlist" class="app-view hidden" aria-labelledby="tab-btn-watchlist">
+        <div class="section-header-card">
+          <div>
+            <h2 class="section-title">La mia Watchlist</h2>
+            <p class="section-desc" id="watchlist-summary-text">Gestisci gli anime che stai seguendo o vuoi recuperare.</p>
+          </div>
+          <button type="button" id="btn-enrich-all-watchlist" class="btn-outline-sm" title="Aggiorna durate e piattaforme di tutta la watchlist">
+            Aggiorna dati
+          </button>
+        </div>
+
+        <div class="watchlist-tabs" role="tablist" aria-label="Filtra stato watchlist">
+          <button type="button" class="wl-tab active" data-wl-filter="all" role="tab" aria-selected="true">Tutti</button>
+          <button type="button" class="wl-tab" data-wl-filter="plan" role="tab" aria-selected="false">Da vedere</button>
+          <button type="button" class="wl-tab" data-wl-filter="watching" role="tab" aria-selected="false">In corso</button>
+          <button type="button" class="wl-tab" data-wl-filter="completed" role="tab" aria-selected="false">Completati</button>
+        </div>
+
+        <div id="watchlist-grid" class="anime-grid"></div>
+      </section>
+
+      <!-- VISTA 3: OTTIMIZZATORE ABBONAMENTI & TEMPO -->
+      <section id="view-optimizer" class="app-view hidden" aria-labelledby="tab-btn-optimizer">
+        <div class="section-header-card">
+          <div>
+            <h2 class="section-title">Ottimizzatore Budget &amp; Tempo</h2>
+            <p class="section-desc">Algoritmo Set Cover e pianificatore di rotazione mensile sulla tua Watchlist ("Da vedere" + "In corso").</p>
+          </div>
+        </div>
+
+        <!-- Time Input Card -->
+        <div class="optimizer-card">
+          <div class="opt-time-control">
+            <label for="input-weekly-hours" class="opt-label">
+              <span>⏱️ Ore settimanali dedicate agli anime:</span>
+              <strong id="weekly-hours-display" class="accent-val">7 h/sett</strong>
+            </label>
+            <input type="range" id="input-weekly-hours" min="1" max="40" step="0.5" value="7" class="range-slider">
+            <div class="opt-sub-metrics" id="time-budget-submetrics"></div>
+          </div>
+        </div>
+
+        <!-- KPI Summary Grid -->
+        <div id="optimizer-kpis" class="kpi-grid"></div>
+
+        <!-- Set Cover Analysis Output -->
+        <div id="optimizer-setcover-container" class="optimizer-stack"></div>
+
+        <!-- Time Feasibility & Monthly Rotation Advice -->
+        <div id="optimizer-rotation-container" class="optimizer-stack"></div>
+      </section>
+
+      <!-- VISTA 4: ABBONAMENTI & IMPOSTAZIONI -->
+      <section id="view-settings" class="app-view hidden" aria-labelledby="tab-btn-settings">
+        <!-- Installazione PWA Card -->
+        <div class="settings-card" id="card-pwa-install">
+          <div class="settings-card-header">
+            <h2 class="section-title">📱 Applicazione Nativa (PWA)</h2>
+            <span id="pwa-install-status-badge" class="meta-badge">WebAPK</span>
+          </div>
+          <p class="section-desc">
+            Installa AnimeWatch sul tuo telefono come vera applicazione di sistema: funzionerà a schermo intero, nel drawer delle app e offline.
+          </p>
+          <button type="button" id="btn-trigger-pwa-install" class="btn-primary" style="width: 100%; margin-top: 0.5rem;">
+            📲 Installa AnimeWatch sul Telefono
+          </button>
+        </div>
+
+        <!-- Gestione Piattaforme e Diagnostica Foglio -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h2 class="section-title">I Miei Abbonamenti</h2>
+            <span id="last-sync-timestamp" class="meta-badge">Mai sincronizzato</span>
+          </div>
+          <p class="section-desc">
+            Puoi sincronizzare dal tuo Google Sheet (colonne: <code>Piattaforma | Attivo | Costo mensile</code>) oppure attivare/disattivare manualmente qui sotto.
+          </p>
+
+          <!-- Warning box for unrecognized platforms from Google Sheet -->
+          <div id="unrecognized-platforms-box" class="alert-box alert-warning hidden"></div>
+
+          <!-- Interactive Subscription List -->
+          <div id="settings-providers-list" class="providers-config-list"></div>
+        </div>
+
+        <!-- Configurazione Chiavi API & Google Sheets -->
+        <div class="settings-card">
+          <h2 class="section-title">Configurazione API &amp; Google Sheet</h2>
+          <p class="section-desc">
+            Il collegamento alle ricerche e ai cataloghi streaming è <strong>intrinseco al codice</strong>: non hai bisogno di configurare alcuna chiave per usare l'app.
+          </p>
+
+          <div id="intrinsic-key-status-box" class="alert-box alert-info">
+            <span>🔒 <strong>Collegamento Intrinseco Attivo:</strong> L'app è già connessa ai cataloghi anime e streaming IT. Nessuna configurazione richiesta.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="input-tmdb-key" class="form-label">TMDB API Key Personalizzata (Opzionale - Sovrascrive quella intrinseca)</label>
+            <input type="password" id="input-tmdb-key" class="form-input" placeholder="Lascia vuoto per usare la chiave intrinseca protetta" autocomplete="off">
+            <span class="form-hint">Se lasci il campo vuoto, l'app usa in automatico la connessione intrinseca.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="input-sheet-id" class="form-label">Google Sheet ID (Opzionale - per sincronizzare i tuoi abbonamenti)</label>
+            <input type="text" id="input-sheet-id" class="form-input" placeholder="Es. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms" autocomplete="off">
+            <span class="form-hint">Se non usi Google Sheets, puoi gestire e attivare i tuoi abbonamenti direttamente dalla scheda "I Miei Abbonamenti" qui sopra.</span>
+          </div>
+
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label for="input-sheet-range" class="form-label">Range / Nome Foglio</label>
+              <input type="text" id="input-sheet-range" class="form-input" placeholder="A1:C50" value="A1:C50">
+            </div>
+            <div class="form-group">
+              <label for="input-watch-region" class="form-label">Regione Streaming</label>
+              <input type="text" id="input-watch-region" class="form-input" placeholder="IT" maxlength="2" value="IT">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="input-google-client-id" class="form-label">Google OAuth Client ID (Opzionale - per fogli privati)</label>
+            <input type="text" id="input-google-client-id" class="form-input" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label for="input-google-api-key" class="form-label">Google Cloud API Key (Opzionale - per API v4 senza OAuth)</label>
+            <input type="password" id="input-google-api-key" class="form-input" placeholder="AIzaSy..." autocomplete="off">
+          </div>
+
+          <div class="settings-actions-row">
+            <button type="button" id="btn-save-settings" class="btn-primary">Salva Impostazioni</button>
+            <button type="button" id="btn-oauth-sync" class="btn-secondary">Login OAuth &amp; Sync Foglio</button>
+          </div>
+        </div>
+
+        <!-- Privacy Shield & Protezione Dispositivo -->
+        <div class="settings-card">
+          <h2 class="section-title">🛡️ Privacy Shield &amp; Protezione Telefono</h2>
+          <p class="section-desc">
+            Proteggi le tue ricerche e la tua Watchlist se qualcuno prende il tuo telefono.
+          </p>
+
+          <div class="form-group">
+            <label for="input-privacy-pin" class="form-label">Imposta PIN Privacy a 4 cifre (Opzionale)</label>
+            <div class="pin-setup-row">
+              <input type="password" id="input-privacy-pin" class="form-input" placeholder="4 cifre (es. 1234)" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off">
+              <button type="button" id="btn-save-pin" class="btn-primary" style="flex:0 0 auto;">Salva PIN</button>
+              <button type="button" id="btn-remove-pin" class="btn-danger-sm hidden">Rimuovi PIN</button>
+            </div>
+            <span class="form-hint" id="pin-status-text">Nessun PIN impostato. Le ricerche restano comunque volatili in RAM (zero cronologia su disco).</span>
+          </div>
+
+          <div class="settings-actions-row">
+            <button type="button" id="btn-panic-wipe" class="btn-danger-sm" title="Cancella subito ricerche correnti e svuota la cache di memoria">
+              🧹 Panic Clean (Cancella tracce sessione)
+            </button>
+          </div>
+        </div>
+
+        <!-- Backup / Ripristino Dati Locali -->
+        <div class="settings-card">
+          <h2 class="section-title">Backup Dati Locali &amp; Cache</h2>
+          <p class="section-desc">Esporta o importa la tua Watchlist e i tag Doppiaggio ITA in formato JSON.</p>
+          <div class="settings-actions-row">
+            <button type="button" id="btn-export-data" class="btn-outline-sm">Esporta JSON</button>
+            <label for="input-import-file" class="btn-outline-sm file-label-btn">Importa JSON</label>
+            <input type="file" id="input-import-file" accept="application/json" class="hidden">
+            <button type="button" id="btn-clear-cache" class="btn-danger-sm">Svuota Cache TMDB</button>
+          </div>
+        </div>
+
+        <!-- Legal Attributions Footer -->
+        <footer class="legal-footer" role="contentinfo">
+          <div class="legal-logos">
+            <!-- Official TMDB Pill Logo SVG -->
+            <svg class="legal-logo-tmdb" viewBox="0 0 190 28" height="20" aria-label="The Movie Database (TMDB)">
+              <rect width="190" height="28" rx="6" fill="#0d253f"/>
+              <text x="12" y="19" fill="#01b4e4" font-family="sans-serif" font-weight="800" font-size="14" letter-spacing="1.5">THE MOVIE DB</text>
+              <rect x="136" y="6" width="44" height="16" rx="8" fill="#90cea1"/>
+              <text x="145" y="17" fill="#0d253f" font-family="sans-serif" font-weight="800" font-size="10">TMDB</text>
+            </svg>
+            <!-- JustWatch Attribution Badge SVG -->
+            <svg class="legal-logo-jw" viewBox="0 0 130 28" height="20" aria-label="JustWatch">
+              <rect width="130" height="28" rx="6" fill="#111827" stroke="#eab308" stroke-width="1.2"/>
+              <polygon points="14,8 24,14 14,20" fill="#eab308"/>
+              <text x="30" y="18" fill="#facc15" font-family="sans-serif" font-weight="700" font-size="13">JustWatch</text>
+            </svg>
+          </div>
+          <p class="legal-disclaimer">
+            This product uses the TMDB API but is not endorsed or certified by TMDB.
+            I dati sulla disponibilità streaming in Italia sono forniti da <strong>JustWatch</strong> tramite TMDB.
+          </p>
+        </footer>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar (Mobile-first ~400px) -->
+    <nav class="bottom-nav" role="navigation" aria-label="Navigazione principale">
+      <button type="button" id="tab-btn-explore" class="nav-item active" data-target="view-explore" aria-selected="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span>Esplora</span>
+      </button>
+      <button type="button" id="tab-btn-watchlist" class="nav-item" data-target="view-watchlist" aria-selected="false">
+        <div class="nav-icon-wrap">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span id="nav-watchlist-count" class="nav-badge hidden">0</span>
+        </div>
+        <span>Watchlist</span>
+      </button>
+      <button type="button" id="tab-btn-optimizer" class="nav-item" data-target="view-optimizer" aria-selected="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+        <span>Ottimizza</span>
+      </button>
+      <button type="button" id="tab-btn-settings" class="nav-item" data-target="view-settings" aria-selected="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Impostazioni</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODALE DETTAGLIO ANIME, PROVIDER & ANDROID INTENTS -->
+  <div id="anime-detail-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-anime-title">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <h2 id="modal-anime-title" class="modal-title">Dettaglio Anime</h2>
+        <button type="button" id="btn-close-modal" class="modal-close-btn" aria-label="Chiudi finestra">&times;</button>
+      </div>
+      <div id="modal-body-content" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- MODALE SBLOCCO PRIVACY PIN -->
+  <div id="privacy-pin-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-pin-title">
+    <div class="modal-sheet modal-sheet-compact">
+      <div class="modal-header">
+        <h2 id="modal-pin-title" class="modal-title">🔒 Privacy Shield Attivo</h2>
+        <button type="button" id="btn-close-pin-modal" class="modal-close-btn" aria-label="Chiudi finestra">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <p class="section-desc">Inserisci il tuo PIN a 4 cifre per sbloccare la Watchlist e i dati personali.</p>
+        <div class="pin-dots-display" id="pin-dots-display">
+          <span class="pin-dot-indicator"></span>
+          <span class="pin-dot-indicator"></span>
+          <span class="pin-dot-indicator"></span>
+          <span class="pin-dot-indicator"></span>
+        </div>
+        <div class="pin-keypad" id="pin-keypad">
+          <!-- Popolato via JS in modo sicuro -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

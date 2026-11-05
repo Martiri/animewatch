@@ -5,3 +5,8 @@
 *.key
 .DS_Store
 _dist/
+.gradle/
+android/.gradle/
+android/app/build/
+dist-apk/
+*.hprof
