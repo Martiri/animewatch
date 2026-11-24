@@ -72,38 +72,36 @@ jobs:
       - name: Prepare APK Artifact
         run: |
           mkdir -p dist-apk
-          cp android/app/build/outputs/apk/release/app-release.apk dist-apk/AnimeWatch-v2.0.0.apk
+          cp android/app/build/outputs/apk/release/app-release.apk dist-apk/AnimeWatch-v2.1.0.apk
           ls -lh dist-apk/
 
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AnimeWatch-POCO-F7-v2.0.0
-          path: dist-apk/AnimeWatch-v2.0.0.apk
+          name: AnimeWatch-POCO-F7-v2.1.0
+          path: dist-apk/AnimeWatch-v2.1.0.apk
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="v2.0.0"
+          TAG_NAME="v2.1.0"
           cat << 'EOF' > release_notes.md
-          ### 📱 AnimeWatch v2.0.0 — 100% Play Protect Clean (Zero Warnings)
-          
-          - **Clean Package ID**: `it.franco.animewatch` con certificato firmato a nome dello sviluppatore secondo specifica skill.
-          - **Zero Permessi Nascosti**: rimossi totalmente `ProfileInstaller`, `InitializationProvider` e il permesso di sistema `DUMP` iniettato da librerie esterne.
-          - **Architettura Ultra-Leggera**: basata direttamente su AndroidX `ComponentActivity` e `WebViewAssetLoader` (zero overhead di Material/AppCompat).
-          - **Icone Adattive Complete**: set multi-densità Android nativo per Xiaomi HyperOS / POCO F7.
-          - **Lock 120Hz Hardware**: rendering a 120 fps forzato sul display AMOLED.
-          - **Offline-First Bundled**: avvio istantaneo a 0ms.
+          ### AnimeWatch v2.1.0 — Aggiornamento Grafico Zinc Dark (POCO F7)
+
+          - **Nuovo Design System Zinc Dark (`#09090B`)**: interfaccia pulita ad alto contrasto senza gradienti, glow o glassmorphism.
+          - **Icone Vettoriali SVG & Skeleton Loader**: rimosse tutte le emoji; aggiunti skeleton loader GPU-only e supporto `tabular-nums`.
+          - **Safe-Area & 120Hz**: spaziatura ottimizzata per status bar e gesture bar di HyperOS 2.
+          - **Aggiornamento In-Place**: firmato con la stessa chiave RSA-2048 di v2.0.0 (`it.franco.animewatch`).
           EOF
 
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             echo "Updating existing release $TAG_NAME with new APK..."
-            gh release upload "$TAG_NAME" dist-apk/AnimeWatch-v2.0.0.apk --clobber
+            gh release upload "$TAG_NAME" dist-apk/AnimeWatch-v2.1.0.apk --clobber
           else
             echo "Creating new release $TAG_NAME..."
-            gh release create "$TAG_NAME" dist-apk/AnimeWatch-v2.0.0.apk \
-              --title "AnimeWatch v2.0.0 (POCO F7 Clean Edition)" \
+            gh release create "$TAG_NAME" dist-apk/AnimeWatch-v2.1.0.apk \
+              --title "AnimeWatch v2.1.0 (Zinc Dark Edition)" \
               --notes-file release_notes.md
           fi

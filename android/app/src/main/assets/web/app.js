@@ -127,6 +127,52 @@
     return element;
   }
 
+  /**
+   * Crea un'icona SVG inline in modo sicuro (zero innerHTML)
+   */
+  function svgIcon(paths, size = 14) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('class', 'inline-icon');
+
+    const pathList = Array.isArray(paths) ? paths : [paths];
+    for (const d of pathList) {
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d);
+      svg.appendChild(path);
+    }
+    return svg;
+  }
+
+  function renderExploreSkeletons(count = 6) {
+    const grid = document.getElementById('explore-grid');
+    if (!grid) return;
+    clearNode(grid);
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < count; i++) {
+      frag.appendChild(
+        el('div', { className: 'skeleton-card', 'aria-hidden': 'true' }, [
+          el('div', { className: 'skeleton-poster' }),
+          el('div', { className: 'skeleton-body' }, [
+            el('div', { className: 'skeleton-line' }),
+            el('div', { className: 'skeleton-line-sm' }),
+            el('div', { className: 'skeleton-control' })
+          ])
+        ])
+      );
+    }
+    grid.appendChild(frag);
+  }
+
   function showToast(message, durationMs = 3200) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -759,6 +805,7 @@
     if (reset) {
       state.filters.page = 1;
       state.exploreItems = [];
+      renderExploreSkeletons(6);
     }
 
     state.isLoadingExplore = true;
@@ -955,9 +1002,9 @@
   }
 
   function formatDubLabel(status) {
-    if (status === 'yes') return '🎙️ ITA: Sì';
-    if (status === 'no') return '🎙️ ITA: No';
-    return '🎙️ ITA: ?';
+    if (status === 'yes') return 'ITA: Sì';
+    if (status === 'no') return 'ITA: No';
+    return 'ITA: ?';
   }
 
   /* ==========================================================================
@@ -1421,10 +1468,10 @@
           textContent: item.mediaType === 'tv' ? 'Serie TV' : 'Film'
         }),
         item.voteAverage > 0
-          ? el('span', {
-              className: 'badge-rating',
-              textContent: `★ ${Number(item.voteAverage).toFixed(1)}`
-            })
+          ? el('span', { className: 'badge-rating' }, [
+              svgIcon('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', 11),
+              Number(item.voteAverage).toFixed(1)
+            ])
           : null
       ])
     );
@@ -1490,9 +1537,9 @@
       },
       [
         el('option', { value: 'none', selected: wlStatus === 'none', textContent: '+ Watchlist' }),
-        el('option', { value: 'plan', selected: wlStatus === 'plan', textContent: '📌 Da vedere' }),
-        el('option', { value: 'watching', selected: wlStatus === 'watching', textContent: '▶️ In corso' }),
-        el('option', { value: 'completed', selected: wlStatus === 'completed', textContent: '✅ Completato' })
+        el('option', { value: 'plan', selected: wlStatus === 'plan', textContent: 'Da vedere' }),
+        el('option', { value: 'watching', selected: wlStatus === 'watching', textContent: 'In corso' }),
+        el('option', { value: 'completed', selected: wlStatus === 'completed', textContent: 'Completato' })
       ]
     );
 
@@ -1562,10 +1609,11 @@
     clearNode(grid);
 
     if (state.privacy.hasPin && state.privacy.isLocked) {
-      if (summaryText) summaryText.textContent = '🔒 Contenuti personali protetti da PIN.';
+      if (summaryText) summaryText.textContent = 'Contenuti personali protetti da PIN.';
       grid.appendChild(
         el('div', { className: 'empty-state' }, [
-          el('strong', { textContent: '🔒 Watchlist Riservata Protetta' }),
+          svgIcon(['M3 11h18v11H3z', 'M7 11V7a5 5 0 0 1 10 0v4'], 22),
+          el('strong', { textContent: 'Watchlist Riservata Protetta' }),
           el('p', {
             textContent:
               'La modalità Privacy Shield è attiva. Inserisci il PIN per visualizzare la tua Watchlist.'
@@ -1876,7 +1924,7 @@
     if (pinStatusText) {
       if (state.privacy.hasPin) {
         pinStatusText.textContent =
-          '🔒 PIN Privacy attivo: la Watchlist e i dati personali sono protetti da sguardi indiscreti.';
+          'PIN Privacy attivo: la Watchlist e i dati personali sono protetti da sguardi indiscreti.';
         if (removePinBtn) removePinBtn.classList.remove('hidden');
         if (pinInput) pinInput.value = '';
       } else {
@@ -2063,7 +2111,10 @@
             })
           : null,
         item.voteAverage > 0
-          ? el('span', { className: 'modal-chip', textContent: `★ ${Number(item.voteAverage).toFixed(1)} TMDB` })
+          ? el('span', { className: 'modal-chip' }, [
+              svgIcon('M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', 12),
+              `${Number(item.voteAverage).toFixed(1)} TMDB`
+            ])
           : null
       ])
     ]);
@@ -2123,7 +2174,7 @@
                 el('div', { className: 'provider-name-label', textContent: prov.name }),
                 el('div', {
                   className: 'form-hint',
-                  textContent: entry.isMyActiveSub ? '✅ Incluso nel tuo abbonamento attivo' : 'Abbonamento non attivo'
+                  textContent: entry.isMyActiveSub ? 'Incluso nel tuo abbonamento attivo' : 'Abbonamento non attivo'
                 })
               ])
             ]),
@@ -2139,7 +2190,7 @@
                 type: 'button',
                 className: 'btn-copy-launch',
                 title: 'Copia il titolo negli appunti e apri l’app/sito',
-                textContent: '📋+Apri',
+                textContent: 'Copia e Apri',
                 onClick: () => copyTitleAndLaunch(item.title, links.primaryUrl)
               })
             ])
@@ -2206,7 +2257,7 @@
         href: jwFallbackUrl,
         target: '_blank',
         rel: 'noopener noreferrer',
-        textContent: '🔗 Apri pagina ufficiale TMDB / JustWatch (Fallback)'
+        textContent: 'Apri pagina ufficiale TMDB / JustWatch (Fallback)'
       })
     );
 
@@ -2570,7 +2621,7 @@
         } else if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
           showToast('AnimeWatch è già installata e aperta come app!');
         } else {
-          showToast('Tocca i 3 puntini in alto a destra in Chrome ➔ "Installa applicazione"');
+          showToast('Tocca i 3 puntini in alto a destra in Chrome -> "Installa applicazione"');
         }
       });
     }
@@ -2579,37 +2630,45 @@
   }
 
   function updatePwaInstallUi() {
+    const isNativeApk = window.location.hostname === 'appassets.androidplatform.net';
+    const pwaCard = document.getElementById('card-pwa-install');
+    if (isNativeApk) {
+      if (pwaCard) pwaCard.classList.add('hidden');
+      return;
+    }
+
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     const badge = document.getElementById('pwa-install-status-badge');
     const triggerBtn = document.getElementById('btn-trigger-pwa-install');
     if (badge) {
       if (isStandalone) {
-        badge.textContent = '✅ Installata';
+        badge.textContent = 'Installata';
         badge.className = 'meta-badge badge-active';
       } else if (window.deferredInstallPrompt) {
-        badge.textContent = '⚡ Pronta per l\'installazione';
+        badge.textContent = 'Pronta per l\'installazione';
         badge.className = 'meta-badge badge-ready';
       } else {
         badge.textContent = 'WebAPK';
       }
     }
     if (triggerBtn && isStandalone) {
-      triggerBtn.textContent = '✅ Applicazione già installata';
+      triggerBtn.textContent = 'Applicazione già installata';
       triggerBtn.disabled = true;
       triggerBtn.classList.add('btn-disabled');
     }
   }
 
   function showPwaInstallBanner() {
+    const isNativeApk = window.location.hostname === 'appassets.androidplatform.net';
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    if (isStandalone) return;
+    if (isNativeApk || isStandalone) return;
     const existing = document.getElementById('pwa-install-banner');
     if (existing) return;
     const container = document.getElementById('global-alert-container');
     if (!container) return;
 
     const banner = el('div', { id: 'pwa-install-banner', className: 'alert-box alert-info' }, [
-      el('span', { textContent: '📱 Installa AnimeWatch come vera applicazione nativa sul tuo telefono.' }),
+      el('span', { textContent: 'Installa AnimeWatch come applicazione nativa sul tuo telefono.' }),
       el('button', {
         type: 'button',
         className: 'alert-action-btn',

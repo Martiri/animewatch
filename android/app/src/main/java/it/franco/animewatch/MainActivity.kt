@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         // 4. Inizializzazione WebView sicura
         webView = WebView(this).apply {
             id = View.generateViewId()
-            setBackgroundColor(0xFF0B0F17.toInt()) // OLED Dark #0b0f17
+            setBackgroundColor(0xFF09090B.toInt()) // Zinc Dark #09090B
         }
         setContentView(webView)
 
