@@ -5,9 +5,9 @@
 
 'use strict';
 
-const STATIC_CACHE = 'animewatch-static-v5';
-const API_CACHE = 'animewatch-api-v5';
-const IMG_CACHE = 'animewatch-img-v5';
+const STATIC_CACHE = 'animewatch-static-v6';
+const API_CACHE = 'animewatch-api-v6';
+const IMG_CACHE = 'animewatch-img-v6';
 
 const APP_SHELL_ASSETS = [
   './',

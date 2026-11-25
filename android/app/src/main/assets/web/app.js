@@ -293,6 +293,15 @@
     } catch (_) { /* ignore */ }
   }
 
+  let _saveDetailsTimer = null;
+  function scheduleSaveDetailsCache() {
+    if (_saveDetailsTimer) return;
+    _saveDetailsTimer = setTimeout(() => {
+      _saveDetailsTimer = null;
+      saveDetailsCache();
+    }, 250);
+  }
+
   function saveDetailsCache() {
     try {
       // Mantiene solo le ultime 250 voci per non saturare localStorage
@@ -770,7 +779,7 @@
     };
 
     state.detailsCache[key] = detailRecord;
-    saveDetailsCache();
+    scheduleSaveDetailsCache();
 
     // Se l'anime è in watchlist, aggiorna anche i suoi metadati per il Set Cover
     if (state.watchlist[key]) {
@@ -927,11 +936,12 @@
 
         fetchedItems.sort((a, b) => b.popularity - a.popularity);
 
-        // Pre-fetch leggero dei provider per i primi 8 titoli visibili in griglia
+        // Pre-fetch leggero dei provider per i primi 8 titoli visibili in griglia (aggiornamento chirurgico senza redraw completo)
+        const prefetchSlice = fetchedItems.slice(0, 8);
         Promise.allSettled(
-          fetchedItems.slice(0, 8).map((it) => fetchAndCacheAnimeDetails(it.mediaType, it.id))
+          prefetchSlice.map((it) => fetchAndCacheAnimeDetails(it.mediaType, it.id))
         ).then(() => {
-          renderExploreGrid();
+          refreshVisibleCardDetails(prefetchSlice);
         });
       }
 
@@ -1451,7 +1461,8 @@
           className: 'card-poster-img',
           src: `${CFG.TMDB_IMAGE_BASE}/w342${item.posterPath}`,
           alt: item.title,
-          loading: 'lazy'
+          loading: 'lazy',
+          decoding: 'async'
         })
       );
     } else {
@@ -1476,27 +1487,6 @@
       ])
     );
 
-    // Provider mini badges sulla locandina (se già presenti in cache)
-    const fIds = cachedDetails?.flatrateIds || wlEntry?.flatrateIds || [];
-    if (fIds.length > 0) {
-      const overlay = el('div', { className: 'card-providers-overlay' });
-      const shownKeys = new Set();
-      for (const pid of fIds) {
-        const prov = findProviderByTmdbId(pid);
-        if (prov && !shownKeys.has(prov.key)) {
-          shownKeys.add(prov.key);
-          const isMySub = activeIds.includes(pid);
-          overlay.appendChild(
-            el('span', {
-              className: `provider-mini-chip ${isMySub ? 'is-my-sub' : ''}`,
-              textContent: prov.shortName
-            })
-          );
-        }
-      }
-      posterWrap.appendChild(overlay);
-    }
-
     // Titolo e metadati durata
     const durationText =
       cachedDetails || wlEntry
@@ -1504,6 +1494,9 @@
             (cachedDetails?.totalMinutes || wlEntry?.totalMinutes || 24) / 60
           ).toFixed(1)}h`
         : item.releaseYear || '—';
+
+    // Provider mini badges nel card-body (max 3 + overflow, zero sovrapposizione sulla locandina)
+    const providersRow = buildCardProvidersRow(cachedDetails?.flatrateIds || wlEntry?.flatrateIds || [], activeIds);
 
     // Pulsante Tri-stato Doppiaggio ITA
     const dubBtn = el('button', {
@@ -1551,15 +1544,71 @@
       }),
       el('div', { className: 'card-meta-line' }, [
         el('span', { textContent: item.releaseYear || '—' }),
-        el('span', { textContent: durationText })
+        el('span', { className: 'card-duration-val', textContent: durationText })
       ]),
+      providersRow,
       el('div', { className: 'card-controls' }, [
         el('div', { className: 'card-actions-row' }, [dubBtn]),
         wlSelect
       ])
     ]);
 
-    return el('article', { className: 'anime-card' }, [posterWrap, cardBody]);
+    return el('article', { className: 'anime-card', dataset: { animeKey: key } }, [posterWrap, cardBody]);
+  }
+
+  function buildCardProvidersRow(fIds, activeIds) {
+    const row = el('div', { className: 'card-providers-row' });
+    if (!Array.isArray(fIds) || fIds.length === 0) return row;
+
+    const uniqueProvs = [];
+    const shownKeys = new Set();
+    for (const pid of fIds) {
+      const prov = findProviderByTmdbId(pid);
+      if (prov && !shownKeys.has(prov.key)) {
+        shownKeys.add(prov.key);
+        uniqueProvs.push({ prov, isMySub: activeIds.includes(pid) });
+      }
+    }
+    // Mostra prima gli abbonamenti attivi, max 3 chip + "+N"
+    uniqueProvs.sort((a, b) => Number(b.isMySub) - Number(a.isMySub));
+    const maxShow = 3;
+    for (const entry of uniqueProvs.slice(0, maxShow)) {
+      row.appendChild(
+        el('span', {
+          className: `provider-mini-chip ${entry.isMySub ? 'is-my-sub' : ''}`,
+          textContent: entry.prov.shortName
+        })
+      );
+    }
+    if (uniqueProvs.length > maxShow) {
+      row.appendChild(
+        el('span', {
+          className: 'provider-mini-chip',
+          textContent: `+${uniqueProvs.length - maxShow}`
+        })
+      );
+    }
+    return row;
+  }
+
+  function refreshVisibleCardDetails(items) {
+    const activeIds = getActiveProviderTmdbIds();
+    for (const item of items) {
+      const card = document.querySelector(`.anime-card[data-anime-key="${item.key}"]`);
+      if (!card) continue;
+      const det = state.detailsCache[item.key];
+      if (!det) continue;
+
+      const durEl = card.querySelector('.card-duration-val');
+      if (durEl && det.episodes) {
+        durEl.textContent = `${det.episodes} ep · ${((det.totalMinutes || 24) / 60).toFixed(1)}h`;
+      }
+
+      const oldProvRow = card.querySelector('.card-providers-row');
+      if (oldProvRow) {
+        oldProvRow.replaceWith(buildCardProvidersRow(det.flatrateIds || [], activeIds));
+      }
+    }
   }
 
   function renderExploreGrid() {
@@ -2124,7 +2173,8 @@
         ? el('img', {
             className: 'modal-poster',
             src: `${CFG.TMDB_IMAGE_BASE}/w342${item.posterPath}`,
-            alt: item.title
+            alt: item.title,
+            decoding: 'async'
           })
         : null,
       heroInfo

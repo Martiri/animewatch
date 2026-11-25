@@ -72,36 +72,36 @@ jobs:
       - name: Prepare APK Artifact
         run: |
           mkdir -p dist-apk
-          cp android/app/build/outputs/apk/release/app-release.apk dist-apk/AnimeWatch-v2.1.0.apk
+          cp android/app/build/outputs/apk/release/app-release.apk dist-apk/AnimeWatch-v2.2.0.apk
           ls -lh dist-apk/
 
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AnimeWatch-POCO-F7-v2.1.0
-          path: dist-apk/AnimeWatch-v2.1.0.apk
+          name: AnimeWatch-POCO-F7-v2.2.0
+          path: dist-apk/AnimeWatch-v2.2.0.apk
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="v2.1.0"
+          TAG_NAME="v2.2.0"
           cat << 'EOF' > release_notes.md
-          ### AnimeWatch v2.1.0 — Aggiornamento Grafico Zinc Dark (POCO F7)
+          ### AnimeWatch v2.2.0 — Stile Morbido, Zero Sovrapposizioni & Prestazioni 120Hz
 
-          - **Nuovo Design System Zinc Dark (`#09090B`)**: interfaccia pulita ad alto contrasto senza gradienti, glow o glassmorphism.
-          - **Icone Vettoriali SVG & Skeleton Loader**: rimosse tutte le emoji; aggiunti skeleton loader GPU-only e supporto `tabular-nums`.
-          - **Safe-Area & 120Hz**: spaziatura ottimizzata per status bar e gesture bar di HyperOS 2.
-          - **Aggiornamento In-Place**: firmato con la stessa chiave RSA-2048 di v2.0.0 (`it.franco.animewatch`).
+          - **Stile Morbido & Glass Funzionale**: raggi di curvatura gerarchici (`12px`–`24px`), bordo speculare discreto e glass solo su barre/modali.
+          - **Zero Sovrapposizioni**: provider spostati dalla copertina al corpo card, header compatto per schermi stretti, griglie `minmax(0, 1fr)`.
+          - **Più Veloce a 120Hz**: `content-visibility: auto`, `decoding="async"`, debounce salvataggio cache e aggiornamento chirurgico dei metadati senza redraw della griglia.
+          - **Aggiornamento In-Place**: firmato con la stessa chiave RSA-2048 (`it.franco.animewatch`).
           EOF
 
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             echo "Updating existing release $TAG_NAME with new APK..."
-            gh release upload "$TAG_NAME" dist-apk/AnimeWatch-v2.1.0.apk --clobber
+            gh release upload "$TAG_NAME" dist-apk/AnimeWatch-v2.2.0.apk --clobber
           else
             echo "Creating new release $TAG_NAME..."
-            gh release create "$TAG_NAME" dist-apk/AnimeWatch-v2.1.0.apk \
-              --title "AnimeWatch v2.1.0 (Zinc Dark Edition)" \
+            gh release create "$TAG_NAME" dist-apk/AnimeWatch-v2.2.0.apk \
+              --title "AnimeWatch v2.2.0 (Smooth & Fast Edition)" \
               --notes-file release_notes.md
           fi
