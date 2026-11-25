@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#090d16"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+    <linearGradient id="emerald" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="115" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="url(#accent)" stroke-width="14" opacity="0.35"/>
+  <!-- Stylized Play + Anime Star Emblem -->
+  <path d="M192 146 L368 256 L192 366 Z" fill="url(#accent)" rx="16"/>
+  <path d="M220 190 L328 256 L220 322 Z" fill="#ffffff" opacity="0.92"/>
+  <!-- Subscription Optimization Spark Badge -->
+  <circle cx="372" cy="140" r="46" fill="url(#emerald)"/>
+  <path d="M352 140 L366 154 L394 126" fill="none" stroke="#090d16" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
